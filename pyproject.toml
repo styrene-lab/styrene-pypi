@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "styrene"
+version = "0.6.0"
+description = "Styrene mesh networking suite — daemon, TUI, and tools for Reticulum networks"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+authors = [{name = "Vanderlyn Labs"}]
+keywords = ["reticulum", "mesh", "lora", "lxmf", "fleet"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Communications",
+]
+
+dependencies = [
+    "styrened>=0.6.0",
+    "styrene-tui>=0.5.0",
+]
+
+[project.optional-dependencies]
+web = ["styrened[web]>=0.6.0"]
+metrics = ["styrened[metrics]>=0.6.0"]
+yubikey = ["styrened[yubikey]>=0.6.0"]
+
+[tool.setuptools]
+py-modules = []
+
+[project.urls]
+Homepage = "https://github.com/styrene-lab"
+Repository = "https://github.com/styrene-lab/styrene-pypi"
