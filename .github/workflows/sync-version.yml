@@ -49,13 +49,13 @@ jobs:
             echo "Using manual override: ${{ inputs.version }}"
           else
             VERSION=$(python3 -c "
-          import urllib.request, json
+          import urllib.request, json, re
           data = json.loads(urllib.request.urlopen('https://pypi.org/pypi/styrened/json').read())
           releases = data['releases']
           stable = []
           for v, files in releases.items():
-              # skip prereleases (contains a/b/rc/dev)
-              if any(tag in v for tag in ('a', 'b', 'rc', 'dev')):
+              # only match strict semver (digits.digits.digits)
+              if not re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+', v):
                   continue
               # skip yanked releases
               if all(f.get('yanked', False) for f in files):
@@ -63,8 +63,7 @@ jobs:
               if not files:
                   continue
               stable.append(v)
-          from packaging.version import Version
-          stable.sort(key=Version)
+          stable.sort(key=lambda v: tuple(int(x) for x in v.split('.')))
           print(stable[-1])
           ")
             echo "version=$VERSION" >> "$GITHUB_OUTPUT"
@@ -83,9 +82,8 @@ jobs:
           echo "current_version=$CURRENT" >> "$GITHUB_OUTPUT"
 
           SHOULD_PUBLISH=$(python3 -c "
-          from packaging.version import Version
-          current = Version('$CURRENT')
-          latest = Version('$LATEST')
+          current = tuple(int(x) for x in '$CURRENT'.split('.'))
+          latest = tuple(int(x) for x in '$LATEST'.split('.'))
           print('true' if latest > current else 'false')
           ")
 
