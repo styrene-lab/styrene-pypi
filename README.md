@@ -15,8 +15,7 @@ pip install styrene[yubikey]  # + YubiKey identity support
 
 | Package | PyPI | Description |
 |---------|------|-------------|
-| [styrened](https://github.com/styrene-lab/styrened) | `pip install styrened` | Headless daemon and shared library — RPC server, device discovery, auto-reply |
-| [styrene-tui](https://github.com/styrene-lab/styrene-tui) | `pip install styrene-tui` | Terminal UI client for mesh management (Imperial CRT aesthetic) |
+| [styrened](https://github.com/styrene-lab/styrened) | `pip install styrened` | Daemon, library, and TUI — RPC server, device discovery, auto-reply, mesh management UI |
 
 ## CLI Commands
 
@@ -33,7 +32,7 @@ Each component can be installed independently:
 
 ```bash
 pip install styrened          # daemon/library only
-pip install styrene-tui       # TUI + styrened (as dependency)
+pip install styrened[tui]     # daemon + TUI
 ```
 
 ## License

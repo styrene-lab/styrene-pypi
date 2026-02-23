@@ -5,23 +5,16 @@ None of these are blocking; all are cleanup/hardening.
 
 ## styrene-pypi
 
-### Add CLAUDE.md
-Minimal project instructions. Every other repo in the workspace has one.
+### Version sync workflow
+`.github/workflows/sync-version.yml` polls PyPI every 6 hours for new stable
+styrened releases. Manual override via `workflow_dispatch` with optional version
+input. Future: add `repository_dispatch` trigger from styrened's Argo
+release-build.yaml for near-instant sync (schedule polling remains as safety net).
 
-### Add smoke test to publish workflow
-`.github/workflows/publish.yml` builds and publishes without validation.
-Add a step between build and publish:
-```yaml
-- name: Smoke test
-  run: |
-    pip install dist/*.whl
-    python -c "import importlib.metadata; print(importlib.metadata.requires('styrene'))"
-```
-
-### Consider version pin strategy
-Currently uses `>=` (loose). This is fine for now (matches ansible's approach),
-but if styrened or styrene-tui ship a breaking major version, `pip install styrene`
-could pull incompatible combinations. Revisit when any component hits 1.0.
+**One-time setup required:**
+- Add `sync-version.yml` as a second trusted publisher at
+  pypi.org/manage/project/styrene/settings/publishing/
+- Ensure `pypi` environment exists on `styrene-lab/styrene-pypi`
 
 ## styrene-tui
 

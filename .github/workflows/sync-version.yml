@@ -1,0 +1,194 @@
+name: Sync styrened version
+
+on:
+  schedule:
+    - cron: "17 */6 * * *"  # every 6 hours at :17
+  repository_dispatch:
+    types: [styrened-release]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Override version (e.g. 0.11.0). Leave empty to auto-detect from PyPI."
+        required: false
+        type: string
+      dry_run:
+        description: "Dry run — detect version but skip commit/publish"
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: sync-version
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  # ── 1. Check PyPI for a newer stable styrened release ──────────────
+  check:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      new_version: ${{ steps.compare.outputs.new_version }}
+      current_version: ${{ steps.compare.outputs.current_version }}
+      tag: ${{ steps.compare.outputs.tag }}
+      should_publish: ${{ steps.compare.outputs.should_publish }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Get latest stable styrened version from PyPI
+        id: pypi
+        run: |
+          if [ -n "${{ inputs.version }}" ]; then
+            echo "version=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+            echo "Using manual override: ${{ inputs.version }}"
+          else
+            VERSION=$(python3 -c "
+          import urllib.request, json
+          data = json.loads(urllib.request.urlopen('https://pypi.org/pypi/styrened/json').read())
+          releases = data['releases']
+          stable = []
+          for v, files in releases.items():
+              # skip prereleases (contains a/b/rc/dev)
+              if any(tag in v for tag in ('a', 'b', 'rc', 'dev')):
+                  continue
+              # skip yanked releases
+              if all(f.get('yanked', False) for f in files):
+                  continue
+              if not files:
+                  continue
+              stable.append(v)
+          from packaging.version import Version
+          stable.sort(key=Version)
+          print(stable[-1])
+          ")
+            echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+            echo "Latest stable styrened on PyPI: $VERSION"
+          fi
+
+      - name: Compare versions
+        id: compare
+        run: |
+          CURRENT=$(python3 -c "
+          import re
+          text = open('pyproject.toml').read()
+          print(re.search(r'^version\s*=\s*\"([^\"]+)\"', text, re.M).group(1))
+          ")
+          LATEST="${{ steps.pypi.outputs.version }}"
+          echo "current_version=$CURRENT" >> "$GITHUB_OUTPUT"
+
+          SHOULD_PUBLISH=$(python3 -c "
+          from packaging.version import Version
+          current = Version('$CURRENT')
+          latest = Version('$LATEST')
+          print('true' if latest > current else 'false')
+          ")
+
+          if [ "$SHOULD_PUBLISH" = "true" ]; then
+            echo "new_version=$LATEST" >> "$GITHUB_OUTPUT"
+            echo "tag=v$LATEST" >> "$GITHUB_OUTPUT"
+            echo "should_publish=true" >> "$GITHUB_OUTPUT"
+            echo "Version bump: $CURRENT -> $LATEST"
+          else
+            echo "should_publish=false" >> "$GITHUB_OUTPUT"
+            echo "Already current ($CURRENT >= $LATEST), nothing to do."
+          fi
+
+      - name: Update pyproject.toml
+        if: steps.compare.outputs.should_publish == 'true' && inputs.dry_run != true
+        run: |
+          VERSION="${{ steps.compare.outputs.new_version }}"
+          python3 -c "
+          import re
+
+          text = open('pyproject.toml').read()
+
+          # bump project version
+          text = re.sub(
+              r'^(version\s*=\s*\")([^\"]+)(\")',
+              r'\g<1>${VERSION}\3',
+              text, count=1, flags=re.M)
+
+          # bump all styrened dependency pins
+          text = re.sub(
+              r'(styrened\[[^\]]+\]>=)[0-9]+\.[0-9]+\.[0-9]+',
+              r'\g<1>${VERSION}',
+              text)
+
+          open('pyproject.toml', 'w').write(text)
+          "
+          echo "Updated pyproject.toml to $VERSION"
+          cat pyproject.toml
+
+      - name: Commit and tag
+        if: steps.compare.outputs.should_publish == 'true' && inputs.dry_run != true
+        run: |
+          VERSION="${{ steps.compare.outputs.new_version }}"
+          TAG="${{ steps.compare.outputs.tag }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add pyproject.toml
+          git commit -m "chore: sync version to styrened $VERSION"
+          git tag "$TAG"
+          git push origin main "$TAG"
+
+  # ── 2. Build and publish to PyPI ──────────────────────────────────
+  publish:
+    needs: check
+    if: needs.check.outputs.should_publish == 'true' && inputs.dry_run != true
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.check.outputs.tag }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install build tools
+        run: pip install build
+
+      - name: Build package
+        run: python -m build
+
+      - name: Smoke test
+        run: |
+          pip install dist/*.whl
+          python -c "import importlib.metadata; print(importlib.metadata.requires('styrene'))"
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+  # ── 3. Create GitHub release ──────────────────────────────────────
+  release:
+    needs: [check, publish]
+    if: needs.check.outputs.should_publish == 'true' && inputs.dry_run != true
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.check.outputs.tag }}
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${{ needs.check.outputs.new_version }}"
+          TAG="${{ needs.check.outputs.tag }}"
+          gh release create "$TAG" \
+            --title "$TAG" \
+            --notes "Automated sync to styrened $VERSION.
+
+          Published to PyPI: https://pypi.org/project/styrene/$VERSION/" \
+            --latest
