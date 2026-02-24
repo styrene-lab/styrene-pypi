@@ -47,6 +47,9 @@ jobs:
           if [ -n "${{ inputs.version }}" ]; then
             echo "version=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
             echo "Using manual override: ${{ inputs.version }}"
+          elif [ -n "${{ github.event.client_payload.version }}" ]; then
+            echo "version=${{ github.event.client_payload.version }}" >> "$GITHUB_OUTPUT"
+            echo "Using dispatch payload: ${{ github.event.client_payload.version }}"
           else
             VERSION=$(python3 -c "
           import urllib.request, json, re
