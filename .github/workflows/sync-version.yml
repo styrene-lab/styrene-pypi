@@ -138,17 +138,38 @@ jobs:
           git tag "$TAG"
           git push origin main "$TAG"
 
-  # ── 2. Create GitHub release (triggers publish.yml for PyPI) ─────
-  release:
+  # ── 2. Build, publish to PyPI, and create GitHub release ─────────
+  #    Done in one job because GITHUB_TOKEN releases can't trigger
+  #    other workflows (anti-cascade), so we publish directly here.
+  publish:
     needs: check
     if: needs.check.outputs.should_publish == 'true' && inputs.dry_run != true
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      id-token: write
+    environment: pypi
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ needs.check.outputs.tag }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Build package
+        run: |
+          pip install build
+          python -m build
+
+      - name: Smoke test
+        run: |
+          pip install --no-deps dist/*.whl
+          python -c "import importlib.metadata; print(importlib.metadata.requires('styrene'))"
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
 
       - name: Create GitHub release
         env:
