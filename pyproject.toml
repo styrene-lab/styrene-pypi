@@ -20,13 +20,13 @@ classifiers = [
 ]
 
 dependencies = [
-    "styrened[tui]~=0.10",
+    "styrened[tui]>=0.10.40",
 ]
 
 [project.optional-dependencies]
-web = ["styrened[web]~=0.10"]
-metrics = ["styrened[metrics]~=0.10"]
-yubikey = ["styrened[yubikey]~=0.10"]
+web = ["styrened[web]>=0.10.40"]
+metrics = ["styrened[metrics]>=0.10.40"]
+yubikey = ["styrened[yubikey]>=0.10.40"]
 
 [project.scripts]
 styrene = "styrened.tui.__main__:main"

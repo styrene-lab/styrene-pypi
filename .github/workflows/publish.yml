@@ -27,7 +27,7 @@ jobs:
 
       - name: Smoke test
         run: |
-          pip install dist/*.whl
+          pip install --no-deps dist/*.whl
           python -c "import importlib.metadata; print(importlib.metadata.requires('styrene'))"
 
       - name: Publish to PyPI
