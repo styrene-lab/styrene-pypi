@@ -52,8 +52,15 @@ jobs:
             echo "Using dispatch payload: ${{ github.event.client_payload.version }}"
           else
             VERSION=$(python3 -c "
-          import urllib.request, json, re
-          data = json.loads(urllib.request.urlopen('https://pypi.org/pypi/styrened/json').read())
+          import urllib.request, json, re, time
+          # Cache-bust: PyPI CDN on GitHub Actions runners can be stale for hours.
+          # Use Accept header to request fresh JSON and add a unique query param.
+          url = f'https://pypi.org/pypi/styrened/json?_cb={int(time.time())}'
+          req = urllib.request.Request(url, headers={
+              'Accept': 'application/json',
+              'Cache-Control': 'no-cache',
+          })
+          data = json.loads(urllib.request.urlopen(req).read())
           releases = data['releases']
           stable = []
           for v, files in releases.items():
