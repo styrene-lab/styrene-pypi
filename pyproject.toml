@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "styrene"
-version = "0.13.43"
+version = "0.14.0"
 description = "Styrene mesh networking suite — daemon, TUI, and tools for Reticulum networks"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -20,13 +20,13 @@ classifiers = [
 ]
 
 dependencies = [
-    "styrened[tui]>=0.13.43",
+    "styrened[tui]>=0.14.0",
 ]
 
 [project.optional-dependencies]
-web = ["styrened[web]>=0.13.43"]
-metrics = ["styrened[metrics]>=0.13.43"]
-yubikey = ["styrened[yubikey]>=0.13.43"]
+web = ["styrened[web]>=0.14.0"]
+metrics = ["styrened[metrics]>=0.14.0"]
+yubikey = ["styrened[yubikey]>=0.14.0"]
 
 [project.scripts]
 styrene = "styrened.tui.__main__:main"
